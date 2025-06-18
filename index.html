@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Panel Służby</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 10px;
+    }
+    button {
+      font-size: 16px;
+      padding: 10px;
+      margin: 5px;
+      width: 120px;
+    }
+    pre {
+      background: #eee;
+      padding: 10px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Panel Służby</h2>
+  <div>
+    <button onclick="startDuty()">St. 1</button>
+    <button onclick="pauseDuty()">St. 2</button>
+    <button onclick="stopDuty()">St. 3</button>
+    <button onclick="addTicket()">Mandat +1</button>
+  </div>
+
+  <p><strong>Start:</strong> <span id="startTime">–</span></p>
+  <p><strong>Stop:</strong> <span id="endTime">–</span></p>
+  <p><strong>Czas trwania:</strong> <span id="duration">–</span></p>
+  <p><strong>Mandaty dziś:</strong> <span id="ticketsToday">0</span></p>
+  <p><strong>Mandaty w tygodniu:</strong> <span id="ticketsWeek">0</span></p>
+  <p><strong>Godzin w tygodniu:</strong> <span id="weekHours">0h 0min</span></p>
+
+  <h3>Wiadomość do Discorda</h3>
+  <pre id="discordOutput">(kliknij St. 3 by wygenerować)</pre>
+
+  <script>
+    let startTimestamp = null;
+    let pausedTime = 0;
+    let interval = null;
+
+    function formatTime(date) {
+      return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    }
+
+    function formatDuration(ms) {
+      const totalMin = Math.floor(ms / 60000);
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      return `${h}h ${m}min`;
+    }
+
+    function updateDisplay() {
+      if (startTimestamp) {
+        const now = new Date();
+        const duration = now - startTimestamp - pausedTime;
+        document.getElementById("duration").textContent = formatDuration(duration);
+      }
+    }
+
+    function startDuty() {
+      if (!startTimestamp) {
+        startTimestamp = new Date();
+        localStorage.setItem("dutyStart", startTimestamp.toISOString());
+        document.getElementById("startTime").textContent = formatTime(startTimestamp);
+      }
+      if (!interval) interval = setInterval(updateDisplay, 1000);
+    }
+
+    function pauseDuty() {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+        pausedTime += 1000; // prosty licznik pauzy – do rozbudowy
+      }
+    }
+
+    function stopDuty() {
+      const end = new Date();
+      const startStr = localStorage.getItem("dutyStart");
+      if (!startStr) return alert("Nie rozpoczęto służby!");
+
+      const start = new Date(startStr);
+      const durationMs = end - start - pausedTime;
+
+      // Zapisz do tygodniowego sumowania
+      const weekKey = getWeekKey();
+      const weeklyData = JSON.parse(localStorage.getItem("weekData") || "{}");
+      const weekEntry = weeklyData[weekKey] || {minutes: 0, tickets: 0};
+
+      const minutes = Math.floor(durationMs / 60000);
+      weekEntry.minutes += minutes;
+      weeklyData[weekKey] = weekEntry;
+      localStorage.setItem("weekData", JSON.stringify(weeklyData));
+
+      // Pokaz wyniki
+      document.getElementById("endTime").textContent = formatTime(end);
+      document.getElementById("duration").textContent = formatDuration(durationMs);
+
+      const startHour = formatTime(start);
+      const endHour = formatTime(end);
+      const todayTickets = Number(localStorage.getItem("ticketsToday") || "0");
+
+      document.getElementById("ticketsWeek").textContent = weekEntry.tickets;
+      document.getElementById("weekHours").textContent = formatDuration(weekEntry.minutes * 60000);
+
+      const output = 
+`Imię i nazwisko: <@1160344068652552304>
+Data: ${end.toLocaleDateString('pl-PL')}
+Godziny pracy: ${startHour}-${endHour}
+Ilość godzin: ${formatDuration(durationMs)}
+Łączna ilość godzin: ${formatDuration(weekEntry.minutes * 60000)}
+Łączna ilość mandatów: ${weekEntry.tickets}`;
+
+      document.getElementById("discordOutput").textContent = output;
+
+      // Reset na następną służbę
+      localStorage.removeItem("dutyStart");
+      localStorage.setItem("ticketsToday", "0");
+      document.getElementById("ticketsToday").textContent = "0";
+      startTimestamp = null;
+      pausedTime = 0;
+      clearInterval(interval);
+      interval = null;
+    }
+
+    function addTicket() {
+      const today = Number(localStorage.getItem("ticketsToday") || "0") + 1;
+      localStorage.setItem("ticketsToday", today);
+      document.getElementById("ticketsToday").textContent = today;
+
+      const weekKey = getWeekKey();
+      const weeklyData = JSON.parse(localStorage.getItem("weekData") || "{}");
+      const weekEntry = weeklyData[weekKey] || {minutes: 0, tickets: 0};
+      weekEntry.tickets += 1;
+      weeklyData[weekKey] = weekEntry;
+      localStorage.setItem("weekData", JSON.stringify(weeklyData));
+      document.getElementById("ticketsWeek").textContent = weekEntry.tickets;
+    }
+
+    function getWeekKey() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const week = Math.floor((now - new Date(year, 0, 1)) / (7 * 24 * 60 * 60 * 1000));
+      return `${year}-W${week}`;
+    }
+
+    // Przy odświeżeniu odczytaj ewentualne dane
+    window.onload = () => {
+      const startStr = localStorage.getItem("dutyStart");
+      if (startStr) {
+        startTimestamp = new Date(startStr);
+        document.getElementById("startTime").textContent = formatTime(startTimestamp);
+        interval = setInterval(updateDisplay, 1000);
+      }
+
+      document.getElementById("ticketsToday").textContent = localStorage.getItem("ticketsToday") || "0";
+
+      const weekKey = getWeekKey();
+      const weeklyData = JSON.parse(localStorage.getItem("weekData") || "{}");
+      const weekEntry = weeklyData[weekKey] || {minutes: 0, tickets: 0};
+      document.getElementById("ticketsWeek").textContent = weekEntry.tickets;
+      document.getElementById("weekHours").textContent = formatDuration(weekEntry.minutes * 60000);
+    };
+  </script>
+</body>
+</html>
