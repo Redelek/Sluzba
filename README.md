@@ -1,2 +1,2 @@
-# S-u-ba
+# Sluzba
 Program dla LSCS
