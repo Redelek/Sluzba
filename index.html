@@ -1,176 +1,139 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
-  <title>Panel Służby</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Służba</title>
   <style>
     body {
-      font-family: sans-serif;
-      max-width: 600px;
-      margin: 20px auto;
-      padding: 10px;
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 30px;
     }
+
     button {
+      padding: 10px 20px;
+      margin: 10px;
       font-size: 16px;
-      padding: 10px;
-      margin: 5px;
-      width: 120px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background-color: #444;
+      color: white;
     }
-    pre {
-      background: #eee;
-      padding: 10px;
-      white-space: pre-wrap;
+
+    button:hover {
+      background-color: #666;
+    }
+
+    #reset {
+      background-color: #c0392b;
+    }
+
+    #reset:hover {
+      background-color: #e74c3c;
+    }
+
+    .log {
+      margin-top: 20px;
+      text-align: left;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+      background: #111;
+      padding: 20px;
+      border-radius: 10px;
     }
   </style>
 </head>
 <body>
+  <h1>Raport służby</h1>
+  <button onclick="start()" id="st1">St. 1</button>
+  <button onclick="pause()" id="st2">St. 2</button>
+  <button onclick="stop()" id="st3">St. 3</button>
+  <button onclick="addMandat()">Mandat +1</button>
+  <button onclick="resetAll()" id="reset">RESET</button>
 
-  <h2>Panel Służby</h2>
-  <div>
-    <button onclick="startDuty()">St. 1</button>
-    <button onclick="pauseDuty()">St. 2</button>
-    <button onclick="stopDuty()">St. 3</button>
-    <button onclick="addTicket()">Mandat +1</button>
-  </div>
-
-  <p><strong>Start:</strong> <span id="startTime">–</span></p>
-  <p><strong>Stop:</strong> <span id="endTime">–</span></p>
-  <p><strong>Czas trwania:</strong> <span id="duration">–</span></p>
-  <p><strong>Mandaty dziś:</strong> <span id="ticketsToday">0</span></p>
-  <p><strong>Mandaty w tygodniu:</strong> <span id="ticketsWeek">0</span></p>
-  <p><strong>Godzin w tygodniu:</strong> <span id="weekHours">0h 0min</span></p>
-
-  <h3>Wiadomość do Discorda</h3>
-  <pre id="discordOutput">(kliknij St. 3 by wygenerować)</pre>
+  <div class="log" id="log"></div>
 
   <script>
-    let startTimestamp = null;
-    let pausedTime = 0;
-    let interval = null;
+    let startTime, pausedTime = 0, timerRunning = false;
 
-    function formatTime(date) {
-      return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    const loadData = () => {
+      return {
+        totalMinutes: parseInt(localStorage.getItem("totalMinutes") || "0"),
+        totalMandaty: parseInt(localStorage.getItem("totalMandaty") || "0")
+      };
     }
 
-    function formatDuration(ms) {
-      const totalMin = Math.floor(ms / 60000);
-      const h = Math.floor(totalMin / 60);
-      const m = totalMin % 60;
+    const saveData = (minutes, mandaty) => {
+      localStorage.setItem("totalMinutes", minutes.toString());
+      localStorage.setItem("totalMandaty", mandaty.toString());
+    }
+
+    const formatTime = (minutes) => {
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
       return `${h}h ${m}min`;
     }
 
-    function updateDisplay() {
-      if (startTimestamp) {
+    const start = () => {
+      if (!timerRunning) {
+        startTime = new Date();
+        timerRunning = true;
+        pausedTime = 0;
+        document.getElementById("log").innerText = `Służba rozpoczęta o ${startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+      }
+    }
+
+    const pause = () => {
+      if (timerRunning) {
         const now = new Date();
-        const duration = now - startTimestamp - pausedTime;
-        document.getElementById("duration").textContent = formatDuration(duration);
+        pausedTime += Math.floor((now - startTime) / 60000);
+        timerRunning = false;
+        document.getElementById("log").innerText += `\nSłużba wstrzymana o ${now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
       }
     }
 
-    function startDuty() {
-      if (!startTimestamp) {
-        startTimestamp = new Date();
-        localStorage.setItem("dutyStart", startTimestamp.toISOString());
-        document.getElementById("startTime").textContent = formatTime(startTimestamp);
-      }
-      if (!interval) interval = setInterval(updateDisplay, 1000);
-    }
-
-    function pauseDuty() {
-      if (interval) {
-        clearInterval(interval);
-        interval = null;
-        pausedTime += 1000; // prosty licznik pauzy – do rozbudowy
-      }
-    }
-
-    function stopDuty() {
-      const end = new Date();
-      const startStr = localStorage.getItem("dutyStart");
-      if (!startStr) return alert("Nie rozpoczęto służby!");
-
-      const start = new Date(startStr);
-      const durationMs = end - start - pausedTime;
-
-      // Zapisz do tygodniowego sumowania
-      const weekKey = getWeekKey();
-      const weeklyData = JSON.parse(localStorage.getItem("weekData") || "{}");
-      const weekEntry = weeklyData[weekKey] || {minutes: 0, tickets: 0};
-
-      const minutes = Math.floor(durationMs / 60000);
-      weekEntry.minutes += minutes;
-      weeklyData[weekKey] = weekEntry;
-      localStorage.setItem("weekData", JSON.stringify(weeklyData));
-
-      // Pokaz wyniki
-      document.getElementById("endTime").textContent = formatTime(end);
-      document.getElementById("duration").textContent = formatDuration(durationMs);
-
-      const startHour = formatTime(start);
-      const endHour = formatTime(end);
-      const todayTickets = Number(localStorage.getItem("ticketsToday") || "0");
-
-      document.getElementById("ticketsWeek").textContent = weekEntry.tickets;
-      document.getElementById("weekHours").textContent = formatDuration(weekEntry.minutes * 60000);
-
-      const output = 
-`Imię i nazwisko: <@1160344068652552304>
-Data: ${end.toLocaleDateString('pl-PL')}
-Godziny pracy: ${startHour}-${endHour}
-Ilość godzin: ${formatDuration(durationMs)}
-Łączna ilość godzin: ${formatDuration(weekEntry.minutes * 60000)}
-Łączna ilość mandatów: ${weekEntry.tickets}`;
-
-      document.getElementById("discordOutput").textContent = output;
-
-      // Reset na następną służbę
-      localStorage.removeItem("dutyStart");
-      localStorage.setItem("ticketsToday", "0");
-      document.getElementById("ticketsToday").textContent = "0";
-      startTimestamp = null;
-      pausedTime = 0;
-      clearInterval(interval);
-      interval = null;
-    }
-
-    function addTicket() {
-      const today = Number(localStorage.getItem("ticketsToday") || "0") + 1;
-      localStorage.setItem("ticketsToday", today);
-      document.getElementById("ticketsToday").textContent = today;
-
-      const weekKey = getWeekKey();
-      const weeklyData = JSON.parse(localStorage.getItem("weekData") || "{}");
-      const weekEntry = weeklyData[weekKey] || {minutes: 0, tickets: 0};
-      weekEntry.tickets += 1;
-      weeklyData[weekKey] = weekEntry;
-      localStorage.setItem("weekData", JSON.stringify(weeklyData));
-      document.getElementById("ticketsWeek").textContent = weekEntry.tickets;
-    }
-
-    function getWeekKey() {
-      const now = new Date();
-      const year = now.getFullYear();
-      const week = Math.floor((now - new Date(year, 0, 1)) / (7 * 24 * 60 * 60 * 1000));
-      return `${year}-W${week}`;
-    }
-
-    // Przy odświeżeniu odczytaj ewentualne dane
-    window.onload = () => {
-      const startStr = localStorage.getItem("dutyStart");
-      if (startStr) {
-        startTimestamp = new Date(startStr);
-        document.getElementById("startTime").textContent = formatTime(startTimestamp);
-        interval = setInterval(updateDisplay, 1000);
+    const stop = () => {
+      if (!startTime) return;
+      const endTime = new Date();
+      let minutesWorked = pausedTime;
+      if (timerRunning) {
+        minutesWorked += Math.floor((endTime - startTime) / 60000);
       }
 
-      document.getElementById("ticketsToday").textContent = localStorage.getItem("ticketsToday") || "0";
+      const { totalMinutes, totalMandaty } = loadData();
+      const updatedMinutes = totalMinutes + minutesWorked;
+      saveData(updatedMinutes, totalMandaty);
 
-      const weekKey = getWeekKey();
-      const weeklyData = JSON.parse(localStorage.getItem("weekData") || "{}");
-      const weekEntry = weeklyData[weekKey] || {minutes: 0, tickets: 0};
-      document.getElementById("ticketsWeek").textContent = weekEntry.tickets;
-      document.getElementById("weekHours").textContent = formatDuration(weekEntry.minutes * 60000);
-    };
+      const report = `Imię i nazwisko: <@1160344068652552304>
+Data: ${endTime.toLocaleDateString()}
+Godziny pracy: ${startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - ${endTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+Ilość godzin: ${formatTime(minutesWorked)}
+Łączna ilość godzin: ${formatTime(updatedMinutes)}
+Łączna ilość mandatów: ${totalMandaty}`;
+
+      document.getElementById("log").innerText = report;
+      timerRunning = false;
+      startTime = null;
+    }
+
+    const addMandat = () => {
+      const { totalMinutes, totalMandaty } = loadData();
+      saveData(totalMinutes, totalMandaty + 1);
+      document.getElementById("log").innerText = `Dodano mandat. Razem mandatów: ${totalMandaty + 1}`;
+    }
+
+    const resetAll = () => {
+      const confirmReset = confirm("Na pewno chcesz zresetować wszystkie dane?");
+      if (confirmReset) {
+        localStorage.clear();
+        location.reload();
+      }
+    }
   </script>
 </body>
 </html>
