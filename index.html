@@ -29,18 +29,17 @@
       background-color: #666;
     }
 
-    #reset {
-      background-color: #c0392b;
-    }
-
-    #reset:hover {
-      background-color: #e74c3c;
+    input {
+      padding: 8px;
+      margin: 5px;
+      border-radius: 6px;
+      border: none;
     }
 
     .log, #mandaty-list, #wyroki-list {
       margin-top: 20px;
       text-align: left;
-      max-width: 600px;
+      max-width: 700px;
       margin-left: auto;
       margin-right: auto;
       background: #111;
@@ -51,9 +50,8 @@
     .badge {
       background-color: #222;
       margin: 5px;
-      padding: 10px 14px;
+      padding: 10px;
       border-radius: 12px;
-      display: block;
     }
 
     .badge button {
@@ -64,6 +62,10 @@
       cursor: pointer;
       font-weight: bold;
     }
+
+    .form-group {
+      margin: 10px 0;
+    }
   </style>
 </head>
 <body>
@@ -71,13 +73,28 @@
 
   <button onclick="start()">St. 1</button>
   <button onclick="pause()">St. 2</button>
-  <button onclick="stop()">St. 3</button><br>
-  <button onclick="addMandat()">Dodaj mandat</button>
-  <button onclick="addWyrok()">Dodaj wyrok</button>
+  <button onclick="stop()">St. 3</button>
   <button onclick="saveAsPDF()">Zapisz PDF</button>
-  <button onclick="resetAll()" id="reset">RESET</button>
+  <button onclick="resetAll()" id="reset" style="background-color: #c0392b;">RESET</button>
 
   <div class="log" id="log"></div>
+
+  <h2>Dodaj mandat</h2>
+  <div class="form-group">
+    <input type="text" id="mandat-ssn" placeholder="SSN" />
+    <input type="text" id="mandat-powod" placeholder="Powód" />
+    <button onclick="addMandat()">Dodaj mandat</button>
+  </div>
+
+  <h2>Dodaj wyrok</h2>
+  <div class="form-group">
+    <input type="text" id="wyrok-ssn" placeholder="SSN" />
+    <input type="text" id="wyrok-powod" placeholder="Powód" />
+    <input type="number" id="wyrok-grzywna" placeholder="Grzywna ($)" />
+    <input type="number" id="wyrok-kara" placeholder="Kara (msc)" />
+    <button onclick="addWyrok()">Dodaj wyrok</button>
+  </div>
+
   <div id="mandaty-list"></div>
   <div id="wyroki-list"></div>
 
@@ -149,27 +166,35 @@ Wyroki: ${totalWyroki.length}`;
     }
 
     const addMandat = () => {
-      const ssn = prompt("Podaj SSN:");
-      const powod = prompt("Podaj powód:");
+      const ssn = document.getElementById("mandat-ssn").value.trim();
+      const powod = document.getElementById("mandat-powod").value.trim();
       if (!ssn || !powod) return;
 
       const { totalMinutes, totalMandaty, totalWyroki } = loadData();
       totalMandaty.push({ ssn, powod, data: new Date().toLocaleString() });
       saveData(totalMinutes, totalMandaty, totalWyroki);
       renderItems();
+
+      document.getElementById("mandat-ssn").value = "";
+      document.getElementById("mandat-powod").value = "";
     }
 
     const addWyrok = () => {
-      const ssn = prompt("Podaj SSN:");
-      const powod = prompt("Podaj powód:");
-      const grzywna = prompt("Podaj grzywnę ($):");
-      const kara = prompt("Podaj długość kary (msc):");
+      const ssn = document.getElementById("wyrok-ssn").value.trim();
+      const powod = document.getElementById("wyrok-powod").value.trim();
+      const grzywna = document.getElementById("wyrok-grzywna").value.trim();
+      const kara = document.getElementById("wyrok-kara").value.trim();
       if (!ssn || !powod || !grzywna || !kara) return;
 
       const { totalMinutes, totalMandaty, totalWyroki } = loadData();
       totalWyroki.push({ ssn, powod, grzywna, kara, data: new Date().toLocaleString() });
       saveData(totalMinutes, totalMandaty, totalWyroki);
       renderItems();
+
+      document.getElementById("wyrok-ssn").value = "";
+      document.getElementById("wyrok-powod").value = "";
+      document.getElementById("wyrok-grzywna").value = "";
+      document.getElementById("wyrok-kara").value = "";
     }
 
     const removeMandat = (index) => {
@@ -192,26 +217,18 @@ Wyroki: ${totalWyroki.length}`;
       document.getElementById("mandaty-list").innerHTML = "<h3>Mandaty:</h3>" +
         totalMandaty.map((m, i) =>
           `<div class="badge">
-             [${m.data}] SSN: ${m.ssn}, Powód: ${m.powod}
-             <button onclick="removeMandat(${i})">❌</button>
-           </div>`
+            [${m.data}] SSN: ${m.ssn}, Powód: ${m.powod}
+            <button onclick="removeMandat(${i})">❌</button>
+          </div>`
         ).join("");
 
       document.getElementById("wyroki-list").innerHTML = "<h3>Wyroki:</h3>" +
         totalWyroki.map((w, i) =>
           `<div class="badge">
-             [${w.data}] SSN: ${w.ssn}, Powód: ${w.powod}, Grzywna: $${w.grzywna}, Kara: ${w.kara} msc
-             <button onclick="removeWyrok(${i})">❌</button>
-           </div>`
+            [${w.data}] SSN: ${w.ssn}, Powód: ${w.powod}, Grzywna: $${w.grzywna}, Kara: ${w.kara} msc
+            <button onclick="removeWyrok(${i})">❌</button>
+          </div>`
         ).join("");
-    }
-
-    const resetAll = () => {
-      const confirmReset = confirm("Na pewno chcesz zresetować wszystkie dane?");
-      if (confirmReset) {
-        localStorage.clear();
-        location.reload();
-      }
     }
 
     const saveAsPDF = () => {
@@ -226,6 +243,13 @@ Wyroki: ${totalWyroki.length}`;
         <ul>${totalWyroki.map(w => `<li>[${w.data}] SSN: ${w.ssn}, Powód: ${w.powod}, Grzywna: $${w.grzywna}, Kara: ${w.kara} msc</li>`).join("")}</ul>
       `;
       html2pdf().from(element).save("raport.pdf");
+    }
+
+    const resetAll = () => {
+      if (confirm("Na pewno chcesz zresetować wszystkie dane?")) {
+        localStorage.clear();
+        location.reload();
+      }
     }
 
     renderItems();
