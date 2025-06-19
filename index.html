@@ -3,6 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+  const correctPIN = "6284"; // ← TUTAJ ZMIEŃ PIN NA SWÓJ
+
+  const accessGranted = sessionStorage.getItem("pin-ok");
+  if (!accessGranted) {
+    const userPIN = prompt("🔐 Wpisz PIN, aby uzyskać dostęp:");
+    if (userPIN !== correctPIN) {
+      document.body.innerHTML = "<h1 style='color:white;text-align:center;margin-top:50px;'>⛔ Nieprawidłowy PIN. Odmowa dostępu.</h1>";
+      throw new Error("Nieprawidłowy PIN");
+    } else {
+      sessionStorage.setItem("pin-ok", "1");
+    }
+  }
+</script>
   <title>Służba</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
