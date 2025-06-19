@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Służba</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     body {
       background-color: #000;
@@ -36,7 +37,7 @@
       background-color: #e74c3c;
     }
 
-    .log {
+    .log, #mandaty-list, #wyroki-list {
       margin-top: 20px;
       text-align: left;
       max-width: 500px;
@@ -63,38 +64,17 @@
       cursor: pointer;
       font-weight: bold;
     }
-
-    #login-screen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: #111;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-    }
   </style>
 </head>
 <body>
-  <div id="login-screen">
-    <h2>Podaj PIN, aby wejść</h2>
-    <input id="pin-input" type="password" placeholder="PIN" style="padding:10px; font-size:18px;" />
-    <button onclick="checkPin()">Zaloguj</button>
-    <p id="pin-error" style="color:red; display:none; margin-top:10px;">Zły PIN</p>
-  </div>
-
   <h1>Raport służby</h1>
-  <button onclick="start()" id="st1">St. 1</button>
-  <button onclick="pause()" id="st2">St. 2</button>
-  <button onclick="stop()" id="st3">St. 3</button>
-  <br>
+
+  <button onclick="start()">St. 1</button>
+  <button onclick="pause()">St. 2</button>
+  <button onclick="stop()">St. 3</button><br>
   <button onclick="addMandat()">Mandat +1</button>
   <button onclick="addWyrok()">Wyrok +1</button>
+  <button onclick="saveAsPDF()">Zapisz PDF</button>
   <button onclick="resetAll()" id="reset">RESET</button>
 
   <div class="log" id="log"></div>
@@ -102,18 +82,6 @@
   <div id="wyroki-list"></div>
 
   <script>
-    // PIN screen logic
-    function checkPin() {
-      const correctPin = "1234"; // ← Zmień tutaj PIN
-      const userPin = document.getElementById("pin-input").value;
-
-      if (userPin === correctPin) {
-        document.getElementById("login-screen").style.display = "none";
-      } else {
-        document.getElementById("pin-error").style.display = "block";
-      }
-    }
-
     let startTime, pausedTime = 0, timerRunning = false;
 
     const loadData = () => {
@@ -182,14 +150,14 @@ Wyroki: ${totalWyroki.length}`;
 
     const addMandat = () => {
       const { totalMinutes, totalMandaty, totalWyroki } = loadData();
-      totalMandaty.push(new Date().toLocaleTimeString());
+      totalMandaty.push(new Date().toLocaleString());
       saveData(totalMinutes, totalMandaty, totalWyroki);
       renderItems();
     }
 
     const addWyrok = () => {
       const { totalMinutes, totalMandaty, totalWyroki } = loadData();
-      totalWyroki.push(new Date().toLocaleTimeString());
+      totalWyroki.push(new Date().toLocaleString());
       saveData(totalMinutes, totalMandaty, totalWyroki);
       renderItems();
     }
@@ -230,7 +198,21 @@ Wyroki: ${totalWyroki.length}`;
       }
     }
 
-    renderItems(); // renderuj po załadowaniu
+    const saveAsPDF = () => {
+      const element = document.createElement("div");
+      const { totalMinutes, totalMandaty, totalWyroki } = loadData();
+      element.innerHTML = `
+        <h1>Raport tygodniowy</h1>
+        <p>Łączna ilość godzin: ${formatTime(totalMinutes)}</p>
+        <p>Mandaty:</p>
+        <ul>${totalMandaty.map(m => `<li>${m}</li>`).join("")}</ul>
+        <p>Wyroki:</p>
+        <ul>${totalWyroki.map(w => `<li>${w}</li>`).join("")}</ul>
+      `;
+      html2pdf().from(element).save("raport.pdf");
+    }
+
+    renderItems();
   </script>
 </body>
 </html>
