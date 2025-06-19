@@ -40,7 +40,7 @@
     .log, #mandaty-list, #wyroki-list {
       margin-top: 20px;
       text-align: left;
-      max-width: 500px;
+      max-width: 600px;
       margin-left: auto;
       margin-right: auto;
       background: #111;
@@ -51,16 +51,16 @@
     .badge {
       background-color: #222;
       margin: 5px;
-      padding: 8px 12px;
-      border-radius: 20px;
-      display: inline-block;
+      padding: 10px 14px;
+      border-radius: 12px;
+      display: block;
     }
 
     .badge button {
       background: none;
       color: red;
       border: none;
-      margin-left: 10px;
+      float: right;
       cursor: pointer;
       font-weight: bold;
     }
@@ -72,8 +72,8 @@
   <button onclick="start()">St. 1</button>
   <button onclick="pause()">St. 2</button>
   <button onclick="stop()">St. 3</button><br>
-  <button onclick="addMandat()">Mandat +1</button>
-  <button onclick="addWyrok()">Wyrok +1</button>
+  <button onclick="addMandat()">Dodaj mandat</button>
+  <button onclick="addWyrok()">Dodaj wyrok</button>
   <button onclick="saveAsPDF()">Zapisz PDF</button>
   <button onclick="resetAll()" id="reset">RESET</button>
 
@@ -149,15 +149,25 @@ Wyroki: ${totalWyroki.length}`;
     }
 
     const addMandat = () => {
+      const ssn = prompt("Podaj SSN:");
+      const powod = prompt("Podaj powód:");
+      if (!ssn || !powod) return;
+
       const { totalMinutes, totalMandaty, totalWyroki } = loadData();
-      totalMandaty.push(new Date().toLocaleString());
+      totalMandaty.push({ ssn, powod, data: new Date().toLocaleString() });
       saveData(totalMinutes, totalMandaty, totalWyroki);
       renderItems();
     }
 
     const addWyrok = () => {
+      const ssn = prompt("Podaj SSN:");
+      const powod = prompt("Podaj powód:");
+      const grzywna = prompt("Podaj grzywnę ($):");
+      const kara = prompt("Podaj długość kary (msc):");
+      if (!ssn || !powod || !grzywna || !kara) return;
+
       const { totalMinutes, totalMandaty, totalWyroki } = loadData();
-      totalWyroki.push(new Date().toLocaleString());
+      totalWyroki.push({ ssn, powod, grzywna, kara, data: new Date().toLocaleString() });
       saveData(totalMinutes, totalMandaty, totalWyroki);
       renderItems();
     }
@@ -178,16 +188,22 @@ Wyroki: ${totalWyroki.length}`;
 
     const renderItems = () => {
       const { totalMandaty, totalWyroki } = loadData();
-      const mandatyDiv = document.getElementById("mandaty-list");
-      const wyrokiDiv = document.getElementById("wyroki-list");
 
-      mandatyDiv.innerHTML = "<h3>Mandaty:</h3>" + totalMandaty.map((m, i) =>
-        `<span class="badge">${m} <button onclick="removeMandat(${i})">❌</button></span>`
-      ).join("");
+      document.getElementById("mandaty-list").innerHTML = "<h3>Mandaty:</h3>" +
+        totalMandaty.map((m, i) =>
+          `<div class="badge">
+             [${m.data}] SSN: ${m.ssn}, Powód: ${m.powod}
+             <button onclick="removeMandat(${i})">❌</button>
+           </div>`
+        ).join("");
 
-      wyrokiDiv.innerHTML = "<h3>Wyroki:</h3>" + totalWyroki.map((w, i) =>
-        `<span class="badge">${w} <button onclick="removeWyrok(${i})">❌</button></span>`
-      ).join("");
+      document.getElementById("wyroki-list").innerHTML = "<h3>Wyroki:</h3>" +
+        totalWyroki.map((w, i) =>
+          `<div class="badge">
+             [${w.data}] SSN: ${w.ssn}, Powód: ${w.powod}, Grzywna: $${w.grzywna}, Kara: ${w.kara} msc
+             <button onclick="removeWyrok(${i})">❌</button>
+           </div>`
+        ).join("");
     }
 
     const resetAll = () => {
@@ -199,15 +215,15 @@ Wyroki: ${totalWyroki.length}`;
     }
 
     const saveAsPDF = () => {
-      const element = document.createElement("div");
       const { totalMinutes, totalMandaty, totalWyroki } = loadData();
+      const element = document.createElement("div");
       element.innerHTML = `
         <h1>Raport tygodniowy</h1>
         <p>Łączna ilość godzin: ${formatTime(totalMinutes)}</p>
-        <p>Mandaty:</p>
-        <ul>${totalMandaty.map(m => `<li>${m}</li>`).join("")}</ul>
-        <p>Wyroki:</p>
-        <ul>${totalWyroki.map(w => `<li>${w}</li>`).join("")}</ul>
+        <h2>Mandaty</h2>
+        <ul>${totalMandaty.map(m => `<li>[${m.data}] SSN: ${m.ssn}, Powód: ${m.powod}</li>`).join("")}</ul>
+        <h2>Wyroki</h2>
+        <ul>${totalWyroki.map(w => `<li>[${w.data}] SSN: ${w.ssn}, Powód: ${w.powod}, Grzywna: $${w.grzywna}, Kara: ${w.kara} msc</li>`).join("")}</ul>
       `;
       html2pdf().from(element).save("raport.pdf");
     }
